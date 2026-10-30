@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en" data-vsc="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Share Panel Designs</title>
+<meta name="description" content="Four UI directions for the Claude Token Share VS Code sidebar panel, shown in a VS Code chrome you can flip between dark and light.">
+<style>
+  :root{
+    --bg:#f4f4f6; --fg:#1c1c22; --fg-dim:#5b5b66; --card:#ffffff; --line:#e4e4ea;
+    --brand:#6d5bd0; --claude:#6d5bd0; --codex:#10a37f; --accent:#0078d4;
+    --shadow:0 1px 2px rgba(20,20,40,.06),0 8px 24px rgba(20,20,40,.08);
+    /* VS Code mock palette (dark by default) */
+    --vbg:#181818; --vside:#1b1b1b; --vact:#181818; --vline:#2b2b2b;
+    --vtext:#cccccc; --vdim:#8a8a8a; --vhover:#2a2d2e; --vsel:#04395e; --vselline:#0078d4;
+    --vchip:#2d2d33; --vactive:#2ea043;
+  }
+  :root[data-theme="dark"]{--bg:#111116;--fg:#e8e8ee;--fg-dim:#9a9aa6;--card:#191920;--line:#26262e;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.45);}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111116;--fg:#e8e8ee;--fg-dim:#9a9aa6;--card:#191920;--line:#26262e;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.45);}}
+  /* VS Code LIGHT mock palette */
+  html[data-vsc="light"]{--vbg:#f8f8f8;--vside:#f8f8f8;--vact:#f8f8f8;--vline:#e5e5e5;--vtext:#3b3b3b;--vdim:#6b6b6b;--vhover:#e8e8e8;--vsel:#cde3f8;--vselline:#0078d4;--vchip:#eaeaea;--vactive:#1a7f37;}
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:40px 16px 80px}
+  header.page{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .logo{width:40px;height:40px;border-radius:10px;background:var(--brand);display:grid;place-items:center;flex:none}
+  .logo svg{width:24px;height:24px;color:#fff}
+  h1{font-size:22px;margin:0;letter-spacing:-.01em}
+  .sub{color:var(--fg-dim);font-size:14px;margin:2px 0 0}
+  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:22px 0 28px}
+  .seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;box-shadow:var(--shadow)}
+  .seg button{border:0;background:transparent;color:var(--fg-dim);font:inherit;font-size:13px;font-weight:600;padding:6px 14px;border-radius:7px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--brand);color:#fff}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--fg-dim);font-size:12.5px;margin-left:auto}
+  .legend b{color:var(--fg)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;vertical-align:middle}
+  .tag.native{background:color-mix(in srgb,var(--codex) 18%,transparent);color:var(--codex)}
+  .tag.web{background:color-mix(in srgb,var(--brand) 20%,transparent);color:var(--brand)}
+
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:28px}
+  @media (max-width:760px){.grid{grid-template-columns:1fr}}
+  .cell{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+  .cap{display:flex;align-items:baseline;gap:8px;margin:0 2px 12px}
+  .cap h2{font-size:15px;margin:0}
+  .cap p{margin:6px 2px 0;color:var(--fg-dim);font-size:13px}
+  .pros{margin:10px 2px 0;padding:0;list-style:none;font-size:12.5px;color:var(--fg-dim)}
+  .pros li{position:relative;padding-left:16px;margin:3px 0}
+  .pros li::before{content:"";position:absolute;left:3px;top:7px;width:5px;height:5px;border-radius:50%;background:var(--brand)}
+
+  /* ---- VS Code window mock ---- */
+  .vsc{display:flex;height:430px;border-radius:12px;overflow:hidden;border:1px solid var(--vline);background:var(--vbg);color:var(--vtext);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:13px}
+  .act{width:44px;flex:none;background:var(--vact);border-right:1px solid var(--vline);display:flex;flex-direction:column;align-items:center;padding-top:8px;gap:14px}
+  .act .ico{width:24px;height:24px;color:var(--vdim);position:relative;display:grid;place-items:center}
+  .act .ico.on{color:var(--vtext)}
+  .act .ico.on::before{content:"";position:absolute;left:-10px;top:-4px;bottom:-4px;width:2px;background:var(--vtext)}
+  .act .ico svg{width:22px;height:22px}
+  .side{flex:1;min-width:0;display:flex;flex-direction:column}
+  .side .hd{display:flex;align-items:center;justify-content:space-between;padding:8px 6px 8px 12px;color:var(--vdim);font-size:11px;letter-spacing:.08em;font-weight:600}
+  .side .hd .acts{display:flex;gap:2px}
+  .side .hd .acts button{all:unset;cursor:pointer;color:var(--vdim);width:22px;height:22px;display:grid;place-items:center;border-radius:5px}
+  .side .hd .acts button:hover{background:var(--vhover);color:var(--vtext)}
+  .side .hd .acts svg{width:16px;height:16px}
+  .body{flex:1;overflow:auto;padding:2px 0}
+  svg.i{width:16px;height:16px;flex:none}
+
+  /* A — tree rows */
+  .row{display:flex;align-items:center;gap:6px;padding:3px 8px 3px 10px;cursor:default;min-height:22px}
+  .row:hover{background:var(--vhover)}
+  .row.sel{background:var(--vsel);box-shadow:inset 2px 0 0 var(--vselline)}
+  .row .chev{width:14px;color:var(--vdim)}
+  .row .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .desc{color:var(--vdim);font-size:11px;white-space:nowrap}
+  .row .inl{display:none;gap:1px}
+  .row:hover .inl{display:flex}
+  .row .inl button{all:unset;cursor:pointer;color:var(--vdim);width:20px;height:20px;display:grid;place-items:center;border-radius:4px}
+  .row .inl button:hover{background:rgba(128,128,128,.25);color:var(--vtext)}
+  .grp{padding-left:6px;font-weight:600}
+  .child{padding-left:26px}
+  .dotc{color:var(--claude)} .dott{color:var(--codex)}
+
+  /* B — cards */
+  .cards{padding:10px}
+  .acard{background:color-mix(in srgb,var(--vtext) 5%,transparent);border:1px solid var(--vline);border-radius:10px;padding:11px 12px;margin-bottom:10px}
+  .acard.sel{border-color:var(--vselline);box-shadow:0 0 0 1px var(--vselline)}
+  .acard .top{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;color:#fff}
+  .chip.c{background:var(--claude)} .chip.t{background:var(--codex)}
+  .acard .nm{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pill{font-size:10px;font-weight:700;color:var(--vactive);display:flex;align-items:center;gap:3px}
+  .pill svg{width:11px;height:11px}
+  .meter{height:4px;border-radius:3px;background:rgba(128,128,128,.25);overflow:hidden;margin:2px 0 9px}
+  .meter i{display:block;height:100%;border-radius:3px;background:var(--codex)}
+  .meter i.warn{background:#d1a01e}
+  .exp{font-size:11px;color:var(--vdim);margin-bottom:9px}
+  .btns{display:flex;gap:6px}
+  .btn{flex:1;text-align:center;font-size:12px;font-weight:600;padding:5px;border-radius:6px;background:rgba(128,128,128,.16);color:var(--vtext);cursor:pointer}
+  .btn.p{background:var(--vselline);color:#fff}
+  .btn.ic{flex:none;width:30px;display:grid;place-items:center}
+  .btn.ic svg{width:14px;height:14px}
+
+  /* C — compact */
+  .sec{padding:8px 12px 4px;color:var(--vdim);font-size:10.5px;letter-spacing:.08em;font-weight:700}
+  .crow{display:flex;align-items:center;gap:9px;padding:6px 12px;cursor:default}
+  .crow:hover{background:var(--vhover)}
+  .pdot{width:8px;height:8px;border-radius:50%;flex:none}
+  .pdot.c{background:var(--claude)} .pdot.t{background:var(--codex)}
+  .crow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cchip{font-size:10.5px;color:var(--vdim);background:var(--vchip);padding:2px 7px;border-radius:999px;white-space:nowrap}
+  .cchip.warn{color:#d1a01e}
+  .crow .k{color:var(--vdim);opacity:0;width:16px;text-align:center}
+  .crow:hover .k{opacity:1}
+  .cta{margin:6px 10px;padding:9px;border-radius:8px;background:var(--vselline);color:#fff;text-align:center;font-weight:600;font-size:12.5px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+  .cta svg{width:15px;height:15px}
+
+  /* D — hero */
+  .hero{margin:12px;padding:14px;border-radius:12px;background:linear-gradient(145deg,color-mix(in srgb,var(--claude) 24%,transparent),color-mix(in srgb,var(--claude) 6%,transparent));border:1px solid var(--vline)}
+  .hero .hk{display:flex;align-items:center;gap:7px;color:var(--vdim);font-size:11px;font-weight:600;margin-bottom:8px}
+  .hero .hk .chip{color:#fff}
+  .hero .bignm{font-size:17px;font-weight:700;margin-bottom:2px}
+  .hero .cd{font-size:12px;color:var(--vdim);margin-bottom:12px}
+  .hero .cd b{color:var(--vtext)}
+  .hero .share{display:block;text-align:center;background:var(--claude);color:#fff;font-weight:700;font-size:13px;padding:8px;border-radius:8px;cursor:pointer}
+  .segd{display:flex;margin:4px 12px 8px;background:rgba(128,128,128,.14);border-radius:8px;padding:3px}
+  .segd button{all:unset;cursor:pointer;flex:1;text-align:center;font-size:12px;font-weight:600;color:var(--vdim);padding:5px;border-radius:6px}
+  .segd button.on{background:var(--vbg);color:var(--vtext);box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .drow{display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:default}
+  .drow:hover{background:var(--vhover)}
+  .drow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .own{color:var(--vselline);font-size:12px;padding:8px 14px;cursor:pointer}
+
+  .foot{margin-top:34px;padding:18px 20px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);font-size:14px}
+  .foot h3{margin:0 0 6px;font-size:15px}
+  .foot p{margin:6px 0;color:var(--fg-dim)}
+  .foot b{color:var(--fg)}
+  .k{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:color-mix(in srgb,var(--brand) 12%,transparent);color:var(--brand);padding:1px 6px;border-radius:5px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2"/><path d="M16.5 6.5 20 10"/></symbol>
+  <symbol id="up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></symbol>
+  <symbol id="add" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></symbol>
+  <symbol id="trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19.5 7"/></symbol>
+  <symbol id="dots" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></symbol>
+  <symbol id="gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+  <symbol id="files" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h9l3 3v13H4z"/><path d="M8 9h5M8 13h8M8 17h8"/></symbol>
+</defs></svg>
+
+<div class="wrap">
+  <header class="page">
+    <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2"/><path d="M16.5 6.5 20 10"/></svg></span>
+    <div>
+      <h1>Token Share — panel designs</h1>
+      <p class="sub">Four directions for the extension's sidebar, in a real VS&nbsp;Code chrome.</p>
+    </div>
+  </header>
+
+  <div class="bar">
+    <div class="seg" role="group" aria-label="VS Code theme">
+      <button data-t="dark" aria-pressed="true">VS Code Dark</button>
+      <button data-t="light" aria-pressed="false">VS Code Light</button>
+    </div>
+    <div class="legend">
+      <span><span class="tag native">Native</span> &nbsp;TreeView — ships today</span>
+      <span><span class="tag web">Webview</span> &nbsp;custom HTML — more code</span>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- A: native tree -->
+    <div class="cell">
+      <div class="cap"><h2>A · Native tree</h2><span class="tag native">Native</span></div>
+      <div class="vsc">
+        <div class="act">
+          <span class="ico on"><svg><use href="#key"/></svg></span>
+          <span class="ico"><svg><use href="#files"/></svg></span>
+          <span class="ico"><svg><use href="#gear"/></svg></span>
+        </div>
+        <div class="side">
+          <div class="hd"><span>TOKEN SHARE</span><span class="acts"><button title="Export current login"><svg><use href="#up"/></svg></button><button title="Import"><svg><use href="#down"/></svg></button><button title="Add"><svg><use href="#add"/></svg></button><button title="Refresh"><svg><use href="#refresh"/></svg></button></span></div>
+          <div class="body">
+            <div class="row grp"><span class="chev">▾</span><span class="dotc"><svg class="i"><use href="#key"/></svg></span><span class="lbl">Claude</span><span class="desc">→ Work Max</span></div>
+            <div class="row child sel"><span class="dotc"><svg class="i"><use href="#check"/></svg></span><span class="lbl">Work Max</span><span class="desc">~128m · active</span><span class="inl"><button><svg class="i"><use href="#up"/></svg></button><button><svg class="i"><use href="#trash"/></svg></button></span></div>
+            <div class="row child"><svg class="i" style="color:var(--vdim)"><use href="#key"/></svg><span class="lbl">Personal</span><span class="desc">~43m</span><span class="inl"><button><svg class="i"><use href="#up"/></svg></button><button><svg class="i"><use href="#trash"/></svg></button></span></div>
+            <div class="row grp"><span class="chev">▾</span><span class="dott"><svg class="i"><use href="#key"/></svg></span><span class="lbl">Codex</span><span class="desc">own login</span></div>
+            <div class="row child"><svg class="i" style="color:var(--vdim)"><use href="#key"/></svg><span class="lbl">Team Plus</span><span class="desc">expired</span><span class="inl"><button><svg class="i"><use href="#up"/></svg></button><button><svg class="i"><use href="#trash"/></svg></button></span></div>
+          </div>
+        </div>
+      </div>
+      <p>Exactly the VS Code explorer look. Click a row to switch; hover reveals share/remove; title bar holds add/import/export.</p>
+      <ul class="pros"><li>Ships today — it's what's built</li><li>Zero custom styling to maintain</li><li>Limited: no countdown bars, no rich layout</li></ul>
+    </div>
+
+    <!-- B: cards -->
+    <div class="cell">
+      <div class="cap"><h2>B · Cards</h2><span class="tag web">Webview</span></div>
+      <div class="vsc">
+        <div class="act">
+          <span class="ico on"><svg><use href="#key"/></svg></span>
+          <span class="ico"><svg><use href="#files"/></svg></span>
+          <span class="ico"><svg><use href="#gear"/></svg></span>
+        </div>
+        <div class="side">
+          <div class="hd"><span>TOKEN SHARE</span><span class="acts"><button><svg><use href="#add"/></svg></button><button><svg><use href="#down"/></svg></button></span></div>
+          <div class="body cards">
+            <div class="acard sel">
+              <div class="top"><span class="chip c">Claude</span><span class="nm">Work Max</span><span class="pill"><svg><use href="#check"/></svg>ACTIVE</span></div>
+              <div class="meter"><i style="width:64%"></i></div>
+              <div class="exp">Expires in 2h 08m</div>
+              <div class="btns"><span class="btn p">Switch</span><span class="btn">Share</span><span class="btn ic"><svg><use href="#trash"/></svg></span></div>
+            </div>
+            <div class="acard">
+              <div class="top"><span class="chip c">Claude</span><span class="nm">Personal</span></div>
+              <div class="meter"><i class="warn" style="width:18%"></i></div>
+              <div class="exp">Expires in 43m</div>
+              <div class="btns"><span class="btn p">Switch</span><span class="btn">Share</span><span class="btn ic"><svg><use href="#trash"/></svg></span></div>
+            </div>
+            <div class="acard">
+              <div class="top"><span class="chip t">Codex</span><span class="nm">Team Plus</span></div>
+              <div class="exp" style="color:#d1555e">Expired — ask owner for a fresh token</div>
+              <div class="btns"><span class="btn">Switch</span><span class="btn">Share</span><span class="btn ic"><svg><use href="#trash"/></svg></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p>Each account a card with a live countdown bar, an ACTIVE pill, and explicit Switch / Share / Remove buttons.</p>
+      <ul class="pros"><li>Clearest for the share-token flow</li><li>Countdown is visual, not just text</li><li>Needs a Webview + message bridge</li></ul>
+    </div>
+
+    <!-- C: compact -->
+    <div class="cell">
+      <div class="cap"><h2>C · Compact list</h2><span class="tag web">Webview</span></div>
+      <div class="vsc">
+        <div class="act">
+          <span class="ico on"><svg><use href="#key"/></svg></span>
+          <span class="ico"><svg><use href="#files"/></svg></span>
+          <span class="ico"><svg><use href="#gear"/></svg></span>
+        </div>
+        <div class="side">
+          <div class="hd"><span>TOKEN SHARE</span><span class="acts"><button><svg><use href="#add"/></svg></button><button><svg><use href="#refresh"/></svg></button></span></div>
+          <div class="body">
+            <div class="sec">CLAUDE · → WORK MAX</div>
+            <div class="crow"><span class="pdot c"></span><span class="nm">Work Max</span><span class="cchip">128m</span><span class="k"><svg class="i"><use href="#dots"/></svg></span></div>
+            <div class="crow"><span class="pdot c"></span><span class="nm">Personal</span><span class="cchip warn">43m</span><span class="k"><svg class="i"><use href="#dots"/></svg></span></div>
+            <div class="sec">CODEX · OWN LOGIN</div>
+            <div class="crow"><span class="pdot t"></span><span class="nm">Team Plus</span><span class="cchip" style="color:#d1555e">expired</span><span class="k"><svg class="i"><use href="#dots"/></svg></span></div>
+            <div class="crow"><span class="pdot t"></span><span class="nm">Side account</span><span class="cchip">5h 01m</span><span class="k"><svg class="i"><use href="#dots"/></svg></span></div>
+          </div>
+          <div class="cta"><svg><use href="#up"/></svg>Export current login to share</div>
+        </div>
+      </div>
+      <p>Dense rows grouped by provider, a countdown chip per row, and one sticky bottom action for the common task.</p>
+      <ul class="pros"><li>Scales to many accounts</li><li>Share CTA always in reach</li><li>Webview; kebab menu per row</li></ul>
+    </div>
+
+    <!-- D: hero -->
+    <div class="cell">
+      <div class="cap"><h2>D · Hero + segmented</h2><span class="tag web">Webview</span></div>
+      <div class="vsc">
+        <div class="act">
+          <span class="ico on"><svg><use href="#key"/></svg></span>
+          <span class="ico"><svg><use href="#files"/></svg></span>
+          <span class="ico"><svg><use href="#gear"/></svg></span>
+        </div>
+        <div class="side">
+          <div class="hd"><span>TOKEN SHARE</span><span class="acts"><button><svg><use href="#gear"/></svg></button></span></div>
+          <div class="body">
+            <div class="hero">
+              <div class="hk"><span class="chip c">Claude</span>ACTIVE ACCOUNT</div>
+              <div class="bignm">Work Max</div>
+              <div class="cd">Expires in <b>2h 08m</b> · refresh stays with owner</div>
+              <div class="share">Export this login to share →</div>
+            </div>
+            <div class="segd"><button class="on">Claude</button><button>Codex</button></div>
+            <div class="drow sel"><svg class="i" style="color:var(--claude)"><use href="#check"/></svg><span class="nm">Work Max</span><span class="cchip">128m</span></div>
+            <div class="drow"><svg class="i" style="color:var(--vdim)"><use href="#key"/></svg><span class="nm">Personal</span><span class="cchip warn">43m</span></div>
+            <div class="own">Use Claude's own login</div>
+          </div>
+        </div>
+      </div>
+      <p>Foregrounds the account in use and the share action; a segmented control flips the list between Claude and Codex.</p>
+      <ul class="pros"><li>Best when you mostly switch + share one at a time</li><li>Share is the primary button</li><li>Webview; most layout work</li></ul>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <h3>Which to build</h3>
+    <p><b>A (native tree)</b> is already wired up — the <span class="k">Token Share</span> container, the key icon, click-to-switch, inline share/remove. Pick it if you want to ship now; VS Code themes it for free.</p>
+    <p><b>B (cards)</b> is the recommended upgrade once you want the countdown and the share flow to feel first-class — it maps cleanly onto a Webview reading the same store. <b>C</b> suits many accounts; <b>D</b> suits a switch-one-at-a-time habit.</p>
+    <p>All four drive the exact same commands underneath (switch · export · import · remove). The choice is only how the panel looks, so we can start on A and swap in a Webview later without touching the token logic.</p>
+  </div>
+</div>
+
+<script>
+  const root=document.documentElement;
+  document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{
+    root.dataset.vsc=b.dataset.t;
+    document.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  }));
+</script>
+</body>
+</html>

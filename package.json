@@ -1,0 +1,145 @@
+{
+  "name": "agent-token-share",
+  "displayName": "Agent Token Share",
+  "description": "Store, switch, and securely share short-lived access tokens for coding agents (Claude Code and Codex).",
+  "version": "0.0.1",
+  "publisher": "local",
+  "private": true,
+  "icon": "media/logo.png",
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished", "onView:tokenShareView"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tokenShare",
+          "title": "Token Share",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "tokenShare": [
+        {
+          "id": "tokenShareView",
+          "name": "Accounts",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "agentTokenShare.addToken",
+        "title": "Add Claude Token (setup-token / API key)",
+        "category": "Token Share",
+        "icon": "$(add)"
+      },
+      {
+        "command": "agentTokenShare.switch",
+        "title": "Switch Account (Claude / Codex)",
+        "category": "Token Share"
+      },
+      {
+        "command": "agentTokenShare.remove",
+        "title": "Remove Account",
+        "category": "Token Share"
+      },
+      {
+        "command": "agentTokenShare.exportToken",
+        "title": "Export (Share) Stored Token",
+        "category": "Token Share"
+      },
+      {
+        "command": "agentTokenShare.exportLogin",
+        "title": "Export Current Login (short-lived)",
+        "category": "Token Share",
+        "icon": "$(export)"
+      },
+      {
+        "command": "agentTokenShare.importToken",
+        "title": "Import Shared Token",
+        "category": "Token Share",
+        "icon": "$(inbox)"
+      },
+      {
+        "command": "agentTokenShare.setKey",
+        "title": "Share Key",
+        "category": "Token Share",
+        "icon": "$(key)"
+      },
+      {
+        "command": "agentTokenShare.verify",
+        "title": "Verify Current Claude Token",
+        "category": "Token Share"
+      },
+      {
+        "command": "agentTokenShare.openTerminal",
+        "title": "Open Claude Terminal with Current Account",
+        "category": "Token Share",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "agentTokenShare.refresh",
+        "title": "Refresh",
+        "category": "Token Share",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "agentTokenShare.setupWrapper",
+        "title": "Install Claude Code Wrapper",
+        "category": "Token Share"
+      },
+      {
+        "command": "agentTokenShare.disableWrapper",
+        "title": "Disable Claude Code Wrapper",
+        "category": "Token Share"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "agentTokenShare.addToken",
+          "when": "view == tokenShareView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "agentTokenShare.setKey",
+          "when": "view == tokenShareView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "agentTokenShare.refresh",
+          "when": "view == tokenShareView",
+          "group": "navigation@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Agent Token Share",
+      "properties": {
+        "agentTokenShare.manageClaudeWrapper": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically install a claudeProcessWrapper so the Claude Code extension uses the selected token on its next session."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node18 --sourcemap",
+    "watch": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node18 --sourcemap --watch",
+    "vscode:prepublish": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node18 --minify",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.94.0",
+    "@vscode/codicons": "^0.0.46-24",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}
