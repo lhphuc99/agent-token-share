@@ -4,6 +4,7 @@
   "description": "Store, switch, and securely share short-lived access tokens for coding agents (Claude Code and Codex).",
   "version": "0.0.1",
   "publisher": "local",
+  "license": "MIT",
   "private": true,
   "icon": "media/logo.png",
   "engines": {
@@ -134,13 +135,16 @@
     "watch": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node18 --sourcemap --watch",
     "vscode:prepublish": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node18 --minify",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "package": "vsce package",
+    "install:local": "./scripts/install-extension.sh"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.94.0",
     "@vscode/codicons": "^0.0.46-24",
+    "@vscode/vsce": "^4.1.0",
     "esbuild": "^0.24.0",
     "typescript": "^5.6.0"
   }

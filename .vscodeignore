@@ -5,6 +5,7 @@ tsconfig.json
 .gitignore
 **/*.map
 design/**
+scripts/**
 bun.lock
 *.vsix
 media/logo.svg
