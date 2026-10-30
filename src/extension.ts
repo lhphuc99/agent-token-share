@@ -12,7 +12,7 @@ import {
   ensureStorage,
   claudeCodeInstalled,
 } from "./wrapper";
-import { importFromPPM, decryptPPMExport } from "./ppm-import";
+import { importFromPPM, decryptPPMExport, type PpmAccount } from "./ppm-import";
 
 let ctx: vscode.ExtensionContext;
 let store: Store;
@@ -50,7 +50,23 @@ export async function activate(context: vscode.ExtensionContext) {
   refreshUI();
 
   if (vscode.workspace.getConfiguration("agentTokenShare").get<boolean>("manageClaudeWrapper", true)) {
-    await setupWrapper(false);
+    const notified = ctx.globalState.get<boolean>("wrapperAutoSetupNotified");
+    const installed = await setupWrapper(false);
+    if (installed && !notified) {
+      void (async () => {
+        await ctx.globalState.update("wrapperAutoSetupNotified", true);
+        const action = await vscode.window.showInformationMessage(
+          "Agent Token Share configured Claude Code to use the selected token.",
+          "Undo",
+        );
+        if (action === "Undo") {
+          await disableWrapper();
+          await vscode.workspace
+            .getConfiguration("agentTokenShare")
+            .update("manageClaudeWrapper", false, vscode.ConfigurationTarget.Global);
+        }
+      })();
+    }
   }
 
   const reg = (id: string, fn: (...a: any[]) => unknown) =>
@@ -133,7 +149,9 @@ async function handlePanelCall(method: string, args: Record<string, unknown>): P
       const token = acc && (await store.token(id));
       if (!acc || !token) return { error: "Token not found." };
       if (!key) return { error: "Enter the share key." };
-      await store.setShareKey(key);
+      // Only persist on first-time setup; a one-off key must not replace an existing saved key
+      const existingKey = await store.shareKey(false);
+      if (!existingKey) await store.setShareKey(key);
       const payload: ExportPayload = { kind: acc.kind, token, expiresAt: acc.expiresAt, label: acc.label };
       const blob = encryptWithPass(JSON.stringify(payload), key);
       if (how === "file") {
@@ -171,9 +189,9 @@ async function handlePanelCall(method: string, args: Record<string, unknown>): P
       const token = id ? await store.token(id) : null;
       if (!token) return { error: "No Claude account active." };
       if (token.startsWith("sk-ant-api")) return { error: "API keys don't have usage data." };
+      const ctrl = new AbortController();
+      const fetchTimer = setTimeout(() => ctrl.abort(), 10000);
       try {
-        const ctrl = new AbortController();
-        setTimeout(() => ctrl.abort(), 10000);
         const res = await (globalThis as { fetch: Function }).fetch(
           "https://api.anthropic.com/api/oauth/usage",
           {
@@ -229,6 +247,8 @@ async function handlePanelCall(method: string, args: Record<string, unknown>): P
         };
       } catch (e) {
         return { error: String((e as Error).message ?? e) };
+      } finally {
+        clearTimeout(fetchTimer);
       }
     }
     case "whoAmI": {
@@ -238,12 +258,12 @@ async function handlePanelCall(method: string, args: Record<string, unknown>): P
       if (token.startsWith("sk-ant-api")) {
         return { error: "API keys don't have a profile. Check the label in the panel." };
       }
+      const whoCtrl = new AbortController();
+      const whoTimer = setTimeout(() => whoCtrl.abort(), 8000);
       try {
-        const ctrl = new AbortController();
-        setTimeout(() => ctrl.abort(), 8000);
         const res = await (globalThis as { fetch: Function }).fetch(
           "https://api.anthropic.com/api/oauth/profile",
-          { headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "oauth-2025-04-20" }, signal: ctrl.signal },
+          { headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "oauth-2025-04-20" }, signal: whoCtrl.signal },
         );
         if (!res.ok) return { error: `Profile fetch failed: HTTP ${res.status}` };
         const d = await res.json() as { account?: { email?: string; full_name?: string; display_name?: string }; organization?: { name?: string } };
@@ -254,48 +274,26 @@ async function handlePanelCall(method: string, args: Record<string, unknown>): P
         };
       } catch (e) {
         return { error: String((e as Error).message ?? e) };
+      } finally {
+        clearTimeout(whoTimer);
       }
     }
     case "importFromPPMBlob": {
       const blob = String(args.blob ?? "").trim();
       const password = String(args.password ?? "").trim();
       if (!blob || !password) return { error: "Blob and password are both required." };
-      let ppmAccounts;
       try {
-        ppmAccounts = decryptPPMExport(blob, password);
+        return await mergePpmAccounts(decryptPPMExport(blob, password));
       } catch (e) {
         return { error: String((e as Error).message ?? e) };
       }
-      if (!ppmAccounts.length) return { count: 0, total: 0 };
-      const existing = new Set(store.list().map((a) => a.label + "|" + a.kind));
-      let count = 0;
-      for (const a of ppmAccounts) {
-        if (!existing.has(a.label + "|" + a.kind)) {
-          await store.add(a.label, a.token, a.kind, a.expiresAt);
-          count++;
-        }
-      }
-      refreshUI();
-      return { count, total: ppmAccounts.length };
     }
     case "importFromPPM": {
-      let ppmAccounts;
       try {
-        ppmAccounts = importFromPPM();
+        return await mergePpmAccounts(importFromPPM());
       } catch (e) {
         return { error: String((e as Error).message ?? e) };
       }
-      if (!ppmAccounts.length) return { count: 0 };
-      const existing = new Set(store.list().map((a) => a.label + "|" + a.kind));
-      let count = 0;
-      for (const a of ppmAccounts) {
-        if (!existing.has(a.label + "|" + a.kind)) {
-          await store.add(a.label, a.token, a.kind, a.expiresAt);
-          count++;
-        }
-      }
-      refreshUI();
-      return { count, total: ppmAccounts.length };
     }
     default:
       return { error: "Unknown method: " + method };
@@ -517,20 +515,22 @@ async function verifyCurrent() {
   );
 }
 
-async function setupWrapper(interactive: boolean) {
+async function setupWrapper(interactive: boolean): Promise<boolean> {
   if (!claudeCodeInstalled()) {
     if (interactive)
       vscode.window.showWarningMessage(
         "Claude Code extension not found. Terminal injection still works; the wrapper only affects the Claude Code extension's own UI.",
       );
-    return;
+    return false;
   }
   try {
     const p = await installWrapper(ctx);
     await setClaudeWrapperSetting(p);
     if (interactive) vscode.window.showInformationMessage("Wrapper installed. New Claude sessions use the selected token.");
+    return true;
   } catch (e) {
     vscode.window.showErrorMessage(`Could not set wrapper: ${(e as Error).message}`);
+    return false;
   }
 }
 
@@ -540,6 +540,19 @@ async function disableWrapper() {
 }
 
 // --- helpers ----------------------------------------------------------------
+
+async function mergePpmAccounts(ppmAccounts: PpmAccount[]): Promise<{ count: number; total: number }> {
+  const existing = new Set(store.list().map((a) => a.label + "|" + a.kind));
+  let count = 0;
+  for (const a of ppmAccounts) {
+    if (!existing.has(a.label + "|" + a.kind)) {
+      await store.add(a.label, a.token, a.kind, a.expiresAt);
+      count++;
+    }
+  }
+  refreshUI();
+  return { count, total: ppmAccounts.length };
+}
 
 async function pickAccount(placeHolder: string): Promise<IdPick | undefined> {
   const items: IdPick[] = store.list().map((a) => ({ label: a.label, description: a.kind, id: a.id }));

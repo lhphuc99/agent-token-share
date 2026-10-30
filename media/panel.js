@@ -233,7 +233,7 @@
     h += '<div class="fld"><label class="lbl">PPM backup blob</label>';
     h += '<textarea id="ppmBlob" placeholder=\'{"version":1,"kdf":"scrypt",…}\'></textarea></div>';
     h += '<div class="fld"><label class="lbl">Backup password</label>';
-    h += '<div class="inwrap"><input type="password" id="ppmPassword" placeholder="Default: ppm-hienlh (leave blank when exported without password)"><button class="btn ghost icon eye" data-action="toggleVis" data-target="ppmPassword">' + ci("eye-closed") + "</button></div></div>";
+    h += '<div class="inwrap"><input type="password" id="ppmPassword" placeholder="Leave blank if backup was exported without a password"><button class="btn ghost icon eye" data-action="toggleVis" data-target="ppmPassword">' + ci("eye-closed") + "</button></div></div>";
     h += '<div id="ppmErr"></div>';
     h += '<div class="actions"><button class="btn" data-action="goMain">Cancel</button>';
     h += '<button class="btn primary" data-action="doImportPPM">' + ci("inbox") + " Import from PPM</button></div>";

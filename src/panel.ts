@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as fs from "node:fs";
+import { randomBytes } from "node:crypto";
 import { Store, type Kind } from "./store";
 import { remainingMins } from "./live-cred";
 
@@ -16,10 +17,7 @@ export interface PanelCallHandler {
 }
 
 function nonce(): string {
-  const c = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let t = "";
-  for (let i = 0; i < 32; i++) t += c[Math.floor(Math.random() * c.length)];
-  return t;
+  return randomBytes(24).toString("base64url");
 }
 
 export class TokenPanel implements vscode.WebviewViewProvider {

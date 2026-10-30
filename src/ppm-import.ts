@@ -1,8 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, existsSync, writeFileSync, unlinkSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, existsSync, writeFileSync, unlinkSync, mkdtempSync, rmdirSync } from "node:fs";
+import { resolve, join } from "node:path";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
 import { createDecipheriv, scryptSync } from "node:crypto";
 import type { Kind } from "./store";
 
@@ -91,8 +90,10 @@ export function importFromPPM(): PpmAccount[] {
 
   const key = Buffer.from(readFileSync(keyPath, "utf-8").trim(), "hex");
 
-  // PPM uses Bun + bun:sqlite — spawn a temporary Bun script to query the DB
-  const tmpScript = join(tmpdir(), `ppm-q-${Date.now()}.mjs`);
+  // PPM uses Bun + bun:sqlite — spawn a temporary Bun script to query the DB.
+  // mkdtempSync gives an isolated directory so the script path is unguessable.
+  const tmpDir = mkdtempSync(join(tmpdir(), "ppm-q-"));
+  const tmpScript = join(tmpDir, "query.mjs");
   writeFileSync(tmpScript,
     `import { Database } from "bun:sqlite";\n` +
     `const db = new Database(${JSON.stringify(dbPath)}, { readonly: true });\n` +
@@ -110,6 +111,7 @@ export function importFromPPM(): PpmAccount[] {
     throw new Error("Failed to read PPM database (is Bun installed?): " + String((e as Error).message ?? e));
   } finally {
     try { unlinkSync(tmpScript); } catch {}
+    try { rmdirSync(tmpDir); } catch {}
   }
 
   const accounts: PpmAccount[] = [];
