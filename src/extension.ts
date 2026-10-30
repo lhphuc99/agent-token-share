@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as fs from "node:fs";
+import * as path from "node:path";
 import { Store, type Kind } from "./store";
 import { encryptWithPass, decryptWithPass } from "./crypto";
 import { remainingMins } from "./live-cred";
@@ -11,6 +12,7 @@ import {
   clearClaudeWrapperSetting,
   ensureStorage,
   claudeCodeInstalled,
+  installClaudeShim,
 } from "./wrapper";
 import { importFromPPM, decryptPPMExport, type PpmAccount } from "./ppm-import";
 
@@ -27,6 +29,10 @@ export async function activate(context: vscode.ExtensionContext) {
   store = new Store(ctx);
   await ensureStorage(ctx);
 
+  const shimDir = await installClaudeShim(ctx);
+  ctx.environmentVariableCollection.description = "Agent Token Share: claude on PATH uses the selected account";
+  ctx.environmentVariableCollection.prepend("PATH", shimDir + path.delimiter, { applyAtProcessCreation: true });
+
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBar.command = "agentTokenShare.switch";
   ctx.subscriptions.push(statusBar);
@@ -35,7 +41,7 @@ export async function activate(context: vscode.ExtensionContext) {
     switch: (id) => void doSwitch(id),
     remove: (id) => void removeById(id),
     add: () => void addToken(),
-    exportLogin: () => void exportCurrentLogin(),
+    exportLogin: (kind) => void exportCurrentLogin(kind),
     ownLogin: (kind) => void clearProvider(kind),
   };
 
@@ -184,10 +190,14 @@ async function handlePanelCall(method: string, args: Record<string, unknown>): P
       return { ok: true };
     }
     case "fetchUsage": {
-      const reqId = args.id ? String(args.id) : store.selectedId("claude");
-      const id = reqId;
-      const token = id ? await store.token(id) : null;
-      if (!token) return { error: "No Claude account active." };
+      let token: string | null | undefined;
+      if (args.own) {
+        token = (await claudeProvider.snapshot())?.token;
+      } else {
+        const reqId = args.id ? String(args.id) : store.selectedId("claude");
+        token = reqId ? await store.token(reqId) : null;
+      }
+      if (!token) return { error: args.own ? "No live Claude login found on this machine." : "No Claude account active." };
       if (token.startsWith("sk-ant-api")) return { error: "API keys don't have usage data." };
       const ctrl = new AbortController();
       const fetchTimer = setTimeout(() => ctrl.abort(), 10000);
@@ -252,9 +262,14 @@ async function handlePanelCall(method: string, args: Record<string, unknown>): P
       }
     }
     case "whoAmI": {
-      const id = store.selectedId("claude");
-      const token = id ? await store.token(id) : null;
-      if (!token) return { error: "No Claude account is active — click Switch first." };
+      let token: string | null | undefined;
+      if (args.own) {
+        token = (await claudeProvider.snapshot())?.token;
+      } else {
+        const id = store.selectedId("claude");
+        token = id ? await store.token(id) : null;
+      }
+      if (!token) return { error: args.own ? "No live Claude login found on this machine." : "No Claude account is active — click Switch first." };
       if (token.startsWith("sk-ant-api")) {
         return { error: "API keys don't have a profile. Check the label in the panel." };
       }
@@ -374,8 +389,8 @@ async function removeById(id: string) {
   vscode.window.showInformationMessage("Removed.");
 }
 
-async function exportCurrentLogin() {
-  const kind = await pickKind("Export which login?");
+async function exportCurrentLogin(presetKind?: Kind) {
+  const kind = presetKind ?? (await pickKind("Export which login?"));
   if (!kind) return;
   const prov = providers[kind];
   const snap = await prov.snapshot();
@@ -476,14 +491,10 @@ async function setKey() {
 async function openTerminal() {
   const id = store.selectedId("claude");
   if (!id) {
-    vscode.window.showWarningMessage("No Claude account selected. (Codex works in any terminal after switching.)");
+    vscode.window.showWarningMessage("No Claude account selected. (Any terminal already picks it up once one is.)");
     return;
   }
-  const token = await store.token(id);
-  if (!token) return;
-  vscode.window
-    .createTerminal({ name: `Claude (${store.find(id)?.label ?? ""})`, env: claudeProvider.terminalEnv!(token) })
-    .show();
+  vscode.window.createTerminal({ name: `Claude (${store.find(id)?.label ?? ""})` }).show();
 }
 
 async function verifyCurrent() {

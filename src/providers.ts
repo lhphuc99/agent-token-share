@@ -22,8 +22,6 @@ export interface Provider {
   apply(ctx: vscode.ExtensionContext, token: string): Promise<void>;
   // Restore the user's own login.
   clear(ctx: vscode.ExtensionContext): Promise<void>;
-  // Env for a terminal launched on this account, if the provider needs one.
-  terminalEnv?(token: string): Record<string, string>;
 }
 
 export const claudeProvider: Provider = {
@@ -41,7 +39,6 @@ export const claudeProvider: Provider = {
   async clear(ctx) {
     await clearCurrentToken(ctx);
   },
-  terminalEnv: (token) => ({ CLAUDE_CODE_OAUTH_TOKEN: token }),
 };
 
 const CODEX_BACKUP = "codex-own-auth.json.bak";

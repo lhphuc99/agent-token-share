@@ -8,7 +8,7 @@ export interface PanelActions {
   switch(id: string): void;
   remove(id: string): void;
   add(): void;
-  exportLogin(): void;
+  exportLogin(kind?: Kind): void;
   ownLogin(kind: Kind): void;
 }
 
@@ -66,7 +66,7 @@ export class TokenPanel implements vscode.WebviewViewProvider {
       case "own":
         return (m as { kind?: Kind }).kind ? this.actions.ownLogin((m as { kind: Kind }).kind) : undefined;
       case "exportLogin":
-        return this.actions.exportLogin();
+        return this.actions.exportLogin((m as { kind?: Kind }).kind);
       case "call":
         if (typeof m.id === "number" && typeof m.method === "string") {
           const callId = m.id;

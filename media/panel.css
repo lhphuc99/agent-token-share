@@ -128,6 +128,18 @@ code {
 .btns { display: flex; gap: 5px; }
 .btns .btn:not(.icon) { flex: 1; }
 
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: var(--vscode-descriptionForeground);
+}
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.divider span { flex: none; }
+
 /* ---- empty state ---- */
 .empty {
   padding: 20px 12px;

@@ -4,6 +4,19 @@
   var app = document.getElementById("app");
   var state = { accounts: [], screen: "main", shareKey: null, banner: null, pending: {}, usageMap: {}, usageFetching: {} };
   var callId = 0;
+  var bannerTimer = null;
+
+  // Toasts auto-hide after 10s; a fresh one cancels any still-pending timer so it
+  // doesn't clear a banner shown after it.
+  function showBanner(ok, text) {
+    if (bannerTimer) clearTimeout(bannerTimer);
+    state.banner = { ok: ok, text: text };
+    bannerTimer = setTimeout(function () {
+      bannerTimer = null;
+      state.banner = null;
+      if (state.screen === "main") renderMain();
+    }, 10000);
+  }
 
   // ---- icons ----------------------------------------------------------------
   function ci(name, cls) {
@@ -49,12 +62,12 @@
   }
 
   // ---- usage helpers --------------------------------------------------------
-  function doFetchUsage(id) {
-    if (state.usageFetching[id]) return;
-    state.usageFetching[id] = true;
-    call("fetchUsage", { id: id }).then(function (r) {
-      delete state.usageFetching[id];
-      state.usageMap[id] = r || { error: "No data." };
+  function doFetchUsage(key, callArgs) {
+    if (state.usageFetching[key]) return;
+    state.usageFetching[key] = true;
+    call("fetchUsage", callArgs).then(function (r) {
+      delete state.usageFetching[key];
+      state.usageMap[key] = r || { error: "No data." };
       if (state.screen === "main") renderMain();
     });
   }
@@ -95,7 +108,10 @@
       return '<div style="font-size:10px;color:var(--vscode-descriptionForeground);margin-bottom:6px;opacity:0.6">Loading usage…</div>';
     }
     var u = state.usageMap[id];
-    if (!u || u.error) return "";
+    if (!u) return "";
+    if (u.error) {
+      return '<div style="font-size:10px;color:var(--vscode-errorForeground);margin-bottom:6px">' + esc(u.error) + "</div>";
+    }
     var h = '<div style="margin-bottom:6px">';
     if (u.session) h += usageRow("5-Hour Session", u.session.utilization, u.session.resetsInMinutes, null);
     if (u.weekly) h += usageRow("Weekly", u.weekly.utilization, null, u.weekly.resetsInHours);
@@ -130,6 +146,14 @@
     h += "</div>";
     h += '<button class="btn block ppm-btn" data-action="syncPPM">' + ci("folder-opened") + " Sync from PPM</button>";
 
+    // own login — always on top, so switching back to it is never more than one click away
+    h += '<div class="list">';
+    h += renderOwnCard("claude");
+    h += renderOwnCard("codex");
+    h += "</div>";
+
+    h += '<div class="divider"><span>Shared accounts</span></div>';
+
     // cards
     if (!state.accounts.length) {
       h += '<div class="empty"><strong>No accounts yet</strong><p>Add a token or import a shared one.</p></div>';
@@ -140,13 +164,6 @@
       }
       h += "</div>";
     }
-
-    // footer
-    h += '<div class="foot" style="margin-top:10px;font-size:11px;color:var(--vscode-descriptionForeground);text-align:center">';
-    h += '<a data-action="ownLogin" data-kind="claude" style="color:var(--vscode-textLink-foreground);cursor:pointer">Claude: own login</a>';
-    h += " · ";
-    h += '<a data-action="ownLogin" data-kind="codex" style="color:var(--vscode-textLink-foreground);cursor:pointer">Codex: own login</a>';
-    h += "</div>";
 
     app.innerHTML = h;
     state.screen = "main";
@@ -191,6 +208,34 @@
       whoBtn +
       refreshBtn +
       '<button class="btn icon" data-action="confirmRemove" data-id="' + a.id + '" title="Remove">' + ci("trash") + "</button>" +
+      "</div></div>";
+  }
+
+  // The live Keychain/credentials-file login — not a stored account, so no id/expiry/remove,
+  // but otherwise the same card shape so it isn't mistaken for a less important entry.
+  function renderOwnCard(kind) {
+    var ownId = "own:" + kind;
+    var active = !state.accounts.some(function (a) { return a.kind === kind && a.selected; });
+    var pill = active ? '<span class="pill">' + ci("check") + " Active</span>" : "";
+    var switchBtn = active
+      ? '<button class="btn" disabled>' + ci("check") + " Active</button>"
+      : '<button class="btn primary" data-action="ownLogin" data-kind="' + kind + '">Switch</button>';
+    var whoBtn = kind === "claude"
+      ? '<button class="btn icon" data-action="whoAmI" data-own="1" title="Who am I?">' + ci("info") + "</button>"
+      : "";
+    var refreshBtn = kind === "claude"
+      ? '<button class="btn icon" data-action="refreshOneUsage" data-id="' + ownId + '" title="Refresh usage">' + ci("refresh") + "</button>"
+      : "";
+    var cardUsage = kind === "claude" ? renderCardUsage(ownId) : "";
+    return '<div class="card' + (active ? " sel" : "") + '">' +
+      '<div class="top"><span class="chip ' + kind + '">' + (kind === "claude" ? "Claude" : "Codex") + "</span>" +
+      '<span class="nm">Own login</span>' + pill + "</div>" +
+      cardUsage +
+      '<div class="btns">' +
+      switchBtn +
+      '<button class="btn" data-action="exportLogin" data-kind="' + kind + '">Share</button>' +
+      whoBtn +
+      refreshBtn +
       "</div></div>";
   }
 
@@ -388,9 +433,16 @@
     goKey: function () { renderKey(); },
     goShare: function (el) { renderShare(el.getAttribute("data-id")); },
     confirmRemove: function (el) { renderRemoveConfirm(el.getAttribute("data-id")); },
-    dismissBanner: function () { state.banner = null; renderMain(); },
+    dismissBanner: function () {
+      if (bannerTimer) { clearTimeout(bannerTimer); bannerTimer = null; }
+      state.banner = null;
+      renderMain();
+    },
 
-    exportLogin: function () { post("exportLogin"); },
+    exportLogin: function (el) {
+      var kind = el && el.getAttribute("data-kind");
+      post("exportLogin", kind ? { kind: kind } : undefined);
+    },
     ownLogin: function (el) { post("own", { kind: el.getAttribute("data-kind") }); },
 
     syncPPM: function () {
@@ -398,11 +450,11 @@
       if (btn) { btn.disabled = true; btn.textContent = "Syncing…"; }
       call("importFromPPM").then(function (r) {
         if (r && r.error) {
-          state.banner = { ok: false, text: "PPM sync failed: " + r.error };
+          showBanner(false, "PPM sync failed: " + r.error);
         } else if (r && r.count === 0) {
-          state.banner = { ok: true, text: r.total === 0 ? "No accounts found in PPM." : "All PPM accounts already imported." };
+          showBanner(true, r.total === 0 ? "No accounts found in PPM." : "All PPM accounts already imported.");
         } else {
-          state.banner = { ok: true, text: "Imported " + r.count + " account" + (r.count !== 1 ? "s" : "") + " from PPM." };
+          showBanner(true, "Imported " + r.count + " account" + (r.count !== 1 ? "s" : "") + " from PPM.");
         }
         renderMain();
       });
@@ -443,14 +495,14 @@
     },
     clearShareKey: function () {
       call("clearShareKey").then(function () {
-        state.banner = { ok: true, text: "Share key cleared." };
+        showBanner(true, "Share key cleared.");
         renderKey();
       });
     },
     copyKey: function () {
       if (state.currentKey) {
         call("copyToClipboard", { text: state.currentKey }).then(function () {
-          state.banner = { ok: true, text: "Key copied to clipboard." };
+          showBanner(true, "Key copied to clipboard.");
           renderKey();
         });
       }
@@ -478,13 +530,13 @@
       var pw = (document.getElementById("ppmPwInput").value || "").trim();
       if (!pw) { showErr("ppmPwErr", "Enter a password."); return; }
       call("setPpmPassword", { password: pw }).then(function () {
-        state.banner = { ok: true, text: "PPM backup default password saved." };
+        showBanner(true, "PPM backup default password saved.");
         renderKey();
       });
     },
     clearPpmPassword: function () {
       call("setPpmPassword", { password: "" }).then(function () {
-        state.banner = { ok: true, text: "PPM backup default password cleared." };
+        showBanner(true, "PPM backup default password cleared.");
         renderKey();
       });
     },
@@ -496,7 +548,7 @@
       if (!token) { showErr("addErr", "Paste a token."); return; }
       call("addToken", { token: token, label: label }).then(function (r) {
         if (r && r.error) { showErr("addErr", r.error); return; }
-        state.banner = { ok: true, text: 'Added "' + label + '".' };
+        showBanner(true, 'Added "' + label + '".');
         renderMain();
       });
     },
@@ -542,7 +594,7 @@
       if (!key) { showErr("importErr", "Enter the share key."); return; }
       call("importToken", { blob: blob, key: key, label: label }).then(function (r) {
         if (r && r.error) { showErr("importErr", r.error); return; }
-        state.banner = { ok: true, text: "Imported and switched." };
+        showBanner(true, "Imported and switched.");
         renderMain();
       });
     },
@@ -557,7 +609,7 @@
         var msg = r.count === 0
           ? (r.total === 0 ? "No accounts found in backup." : "All accounts already imported.")
           : "Imported " + r.count + " of " + r.total + " account" + (r.total !== 1 ? "s" : "") + " from PPM.";
-        state.banner = { ok: true, text: msg };
+        showBanner(true, msg);
         renderMain();
       });
     },
@@ -566,20 +618,21 @@
       var id = el.getAttribute("data-id");
       delete state.usageMap[id];
       renderMain();
-      doFetchUsage(id);
+      doFetchUsage(id, id.indexOf("own:") === 0 ? { own: true } : { id: id });
     },
 
     whoAmI: function (el) {
       el.disabled = true;
-      call("whoAmI").then(function (r) {
+      var own = el.getAttribute("data-own") === "1";
+      call("whoAmI", own ? { own: true } : undefined).then(function (r) {
         if (r && r.error) {
-          state.banner = { ok: false, text: r.error };
+          showBanner(false, r.error);
         } else {
           var parts = [];
           if (r.name) parts.push(r.name);
           if (r.email) parts.push("<" + r.email + ">");
           if (r.org) parts.push("· " + r.org);
-          state.banner = { ok: true, text: parts.length ? parts.join(" ") : "Profile fetched (no name/email returned)." };
+          showBanner(true, parts.length ? parts.join(" ") : "Profile fetched (no name/email returned).");
         }
         renderMain();
       });
@@ -592,7 +645,7 @@
       if (!key) { showErr("shareErr", "Enter the share key."); return; }
       call("exportById", { id: id, key: key, method: "copy" }).then(function (r) {
         if (r && r.error) { showErr("shareErr", r.error); return; }
-        state.banner = { ok: true, text: "Encrypted token copied. Send the KEY separately." };
+        showBanner(true, "Encrypted token copied. Send the KEY separately.");
         renderMain();
       });
     },
@@ -603,7 +656,7 @@
       if (!key) { showErr("shareErr", "Enter the share key."); return; }
       call("exportById", { id: id, key: key, method: "file" }).then(function (r) {
         if (r && r.error) { showErr("shareErr", r.error); return; }
-        state.banner = { ok: true, text: "Saved. Send the KEY separately." };
+        showBanner(true, "Saved. Send the KEY separately.");
         renderMain();
       });
     },
@@ -613,7 +666,7 @@
       var k = (document.getElementById("keyInput").value || "").trim();
       if (!k) { showErr("keyErr", "Enter a key."); return; }
       call("setShareKey", { key: k }).then(function () {
-        state.banner = { ok: true, text: "Share key saved." };
+        showBanner(true, "Share key saved.");
         renderKey();
       });
     },
@@ -622,7 +675,7 @@
     doRemove: function (el) {
       var id = el.getAttribute("data-id");
       call("removeById", { id: id }).then(function () {
-        state.banner = { ok: true, text: "Removed." };
+        showBanner(true, "Removed.");
         renderMain();
       });
     },
@@ -655,8 +708,11 @@
       for (var ai = 0; ai < state.accounts.length; ai++) {
         var acc = state.accounts[ai];
         if (acc.kind === "claude" && !state.usageMap[acc.id] && !state.usageFetching[acc.id]) {
-          doFetchUsage(acc.id);
+          doFetchUsage(acc.id, { id: acc.id });
         }
+      }
+      if (!state.usageMap["own:claude"] && !state.usageFetching["own:claude"]) {
+        doFetchUsage("own:claude", { own: true });
       }
       if (state.screen === "main") renderMain();
     } else if (d.type === "result") {
